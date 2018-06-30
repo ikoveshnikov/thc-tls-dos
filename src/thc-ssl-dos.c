@@ -131,13 +131,13 @@ init_vars(void)
 {
 	SSL_library_init();
 	SSL_load_error_strings();
-	g_opt.ctx = SSL_CTX_new(SSLv23_method()); 
+	g_opt.ctx = SSL_CTX_new(SSLv23_method());
 
 #ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION);
 	/* Always guarantee we can connect to unpatched SSL Servers */
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_LEGACY_SERVER_CONNECT);
-  SSL_CTX_set_options(g_opt.ctx, SSL_OP_ALL);
+	SSL_CTX_set_options(g_opt.ctx, SSL_OP_ALL);
 #endif
 	/* AES256-SHA              SSLv3 Kx=RSA      Au=RSA  Enc=AES(256) */
 	/* RC4-MD5                 SSLv3 Kx=RSA      Au=RSA  Enc=RC4(128) */
@@ -146,7 +146,6 @@ init_vars(void)
 	SSL_CTX_set_cipher_list(g_opt.ctx, "AES256-SHA");
 	//SSL_CTX_set_cipher_list(g_opt.ctx, "RC4-MD5");
 	//SSL_CTX_set_options(g_opt.ctx, SSL_OP_NO_TLSv1);
-	//SSL_CTX_set_options(ctx, SSL_OP_LEGACY_SERVER_CONNECT);
 
 	int i;
 	for (i = 0; i < MAX_PEERS; i++)
@@ -156,11 +155,11 @@ init_vars(void)
 static void
 usage(void)
 {
-	fprintf(stderr, ""
-"./" PROGRAM_NAME " [options] <ip> <port>\n"
-"  -h      help\n"
-"  -l <n>  Limit parallel connections [default: %d]\n"
-"", DEFAULT_PEERS);
+	fprintf(stderr,
+		"./" PROGRAM_NAME " [options] <ip> <port>\n"
+		"  -h      help\n"
+		"  -l <n>  Limit parallel connections [default: %d]\n",
+		DEFAULT_PEERS);
 	exit(0);
 }
 
@@ -179,7 +178,7 @@ do_getopt(int argc, char *argv[])
 		{0, 0, 0, 0}
 	};
 	int option_index = 0;
-	
+
 
 	while ((c = getopt_long(argc, argv, "hl:", long_options, &option_index)) != -1)
 	{
@@ -203,11 +202,11 @@ do_getopt(int argc, char *argv[])
 
 	if (accept_flag == 0)
 	{
-		fprintf(stderr, ""
-"ERROR:\n"
-"Please agree by using '--accept' option that the IP is a legitimate target\n"
-"and that you are fully authorized to perform the test against this target.\n"
-"");
+		fprintf(stderr,
+			"ERROR:\n Please agree by using '--accept' option "
+			"that the IP is a legitimate target\n"
+			"and that you are fully authorized to perform the "
+			"test against this target.\n");
 		exit(-1);
 	}
 
@@ -262,7 +261,8 @@ SSL_set_rw(struct _peer *p, int ret)
 		SSLERR("SSL");
 		if (g_opt.stat.total_ssl_connect <= 0)
 		{
-			fprintf(stderr, "#%d: This does not look like SSL!\n", PEER_GET_IDX(p));
+			fprintf(stderr, "#%d: This does not look like SSL!\n",
+				PEER_GET_IDX(p));
 			exit(-1);
 		}
 		g_opt.stat.error_count++;
@@ -309,10 +309,11 @@ ssl_handshake_io(struct _peer *p)
 		/* Renegotiation is not supported */
 		if (g_opt.stat.total_renegotiations <= 0)
 		{
-			fprintf(stderr, ""
-"ERROR: Target has disabled renegotiations.\n"
-"Use your own skills to modify the source to test/attack\n"
-"the target [hint: TCP reconnect for every handshake].\n");
+			fprintf(stderr,
+				"ERROR: Target has disabled renegotiations.\n"
+				"Use your own skills to modify the source to\n"
+				"test/attack the target [hint: TCP reconnect\n"
+				"for every handshake].\n");
 			exit(-1);
 		}
 	}
@@ -330,15 +331,19 @@ ssl_connect_io(struct _peer *p)
 	if (ret == 1)
 	{
 		g_opt.stat.total_ssl_connect++;
-#if 1 
+#if 1
 		if (!(g_opt.flags & FL_OUTPUT_SR_ONCE))
 		{
 			g_opt.flags |= FL_OUTPUT_SR_ONCE;
 #ifdef SSL_get_secure_renegotiation_support
 			ret = SSL_get_secure_renegotiation_support(p->ssl);
-			printf("Secure Renegotiation support: %s\n", SSL_get_secure_renegotiation_support(p->ssl)?"yes":"no");
+			printf("Secure Renegotiation support: %s\n",
+			       SSL_get_secure_renegotiation_support(p->ssl)
+					? "yes"
+					: "no");
 #else
-			printf("Secure Renegotiation support: UNKNOWN. [Update your OpenSSL library!]\n");
+			printf("Secure Renegotiation support: UNKNOWN. "
+			       "[Update your OpenSSL library!]\n");
 #endif
 		}
 #endif
@@ -378,7 +383,7 @@ PEER_SSL_dummywrite(struct _peer *p)
 {
 	p->state = STATE_SSL_DUMMYWRITE;
 
-	//DEBUGF("%d DummyWrite at %d\n", PEER_GET_IDX(p), p->count_renegotiations);
+	DEBUGF("%d DummyWrite at %d\n", PEER_GET_IDX(p), p->count_renegotiations);
 	ssl_dummywrite_io(p);
 }
 
@@ -443,7 +448,8 @@ CompleteState(struct _peer *p)
 		ret = tcp_connect_io(p);
 		if (ret != 0)
 		{
-			DEBUGF("%d tcp_connect_io(): %s\n", PEER_GET_IDX(p), strerror(errno));
+			DEBUGF("%d tcp_connect_io(): %s\n",
+				PEER_GET_IDX(p), strerror(errno));
 			g_opt.stat.error_count++;
 			PEER_disconnect(p);
 		} else {
@@ -652,19 +658,18 @@ main(int argc, char *argv[])
 	fd_set rfds;
 	fd_set wfds;
 
-printf(""
-"     ______________ ___  _________\n"
-"     \\__    ___/   |   \\ \\_   ___ \\\n"
-"       |    | /    ~    \\/    \\  \\/\n"
-"       |    | \\    Y    /\\     \\____\n"
-"       |____|  \\___|_  /  \\______  /\n"
-"                     \\/          \\/\n"
-"            http://www.thc.org\n"
-"\n"
-"          Twitter @hackerschoice\n"
-"\n"
-"Greetingz: the french underground\n"
-"\n");
+printf("     ______________ ___  _________\n"
+       "     \\__    ___/   |   \\ \\_   ___ \\\n"
+       "       |    | /    ~    \\/    \\  \\/\n"
+       "       |    | \\    Y    /\\     \\____\n"
+       "       |____|  \\___|_  /  \\______  /\n"
+       "                     \\/          \\/\n"
+       "            http://www.thc.org\n"
+       "\n"
+       "          Twitter @hackerschoice\n"
+       "\n"
+       "Greetingz: the french underground\n"
+       "\n");
 	fflush(stdout);
 
 	init_default();
