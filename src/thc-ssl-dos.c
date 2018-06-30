@@ -10,7 +10,7 @@
 #define PROGRAM_NAME		"thc-ssl-dos"
 #define TO_TCP_CONNECT		(10)	/* 10 second TCP connect() timeout */
 #define RENEGOTIATE		(0)
-#define DEFAULT_CIPHER		"AES256-SHA"
+#define DEFAULT_CIPHER		"ECDHE-RSA-AES256-GCM-SHA384"
 
 
 struct _statistics
