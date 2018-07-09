@@ -136,13 +136,14 @@ init_vars(void)
 	SSL_library_init();
 	SSL_load_error_strings();
 	g_opt.ctx = SSL_CTX_new(SSLv23_method());
-
+#if 0
 #ifdef SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION);
 	/* Always guarantee we can connect to unpatched SSL Servers */
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_LEGACY_SERVER_CONNECT);
 	SSL_CTX_set_options(g_opt.ctx, SSL_OP_ALL);
 #endif
+#endif /* 0 */
 	SSL_CTX_set_cipher_list(g_opt.ctx, g_opt.cipher);
 
 
@@ -668,6 +669,8 @@ statistics_update(struct timeval *tv)
 
 	*epoch = *total;
 	g_opt.stat.epoch_start_usec = usec_now;
+
+	fflush(stdout);
 }
 
 int
